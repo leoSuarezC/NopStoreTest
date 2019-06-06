@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Payment methods",
+  "FriendlyName": "MPay24",
+  "SystemName": "Payments.MPay24",
+  "Version": "1.00",
+  "SupportedVersions": [ "4.00" ],
+  "Author": "1000 PS team",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Payments.MPay24.dll",
+  "Description": "This plugin allows paying with MPay24 Gateway"
+}

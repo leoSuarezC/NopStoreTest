@@ -1,0 +1,43 @@
+﻿@model TaxTypeSelectorModel
+@using Nop.Core;
+@using Nop.Core.Domain.Tax;
+@using Microsoft.AspNetCore.Http
+@using System.Net
+@inject IWebHelper webHelper
+@inject IHttpContextAccessor httpContextAccessor
+
+@{
+    var rawUrl = webHelper.GetRawUrl(httpContextAccessor.HttpContext.Request);
+
+    var taxTypes = new List<SelectListItem>();
+    taxTypes.Add(new SelectListItem
+    {
+        Text = T("Tax.Inclusive").Text,
+        Value = webHelper.ModifyQueryString(Url.RouteUrl("ChangeTaxType", new { customertaxtype = ((int)TaxDisplayType.IncludingTax) }), "returnurl=" + WebUtility.UrlEncode(rawUrl), null),
+        Selected = Model.CurrentTaxType == TaxDisplayType.IncludingTax
+    });
+    taxTypes.Add(new SelectListItem
+    {
+        Text = T("Tax.Exclusive").Text,
+        Value = webHelper.ModifyQueryString(Url.RouteUrl("ChangeTaxType", new { customertaxtype = ((int)TaxDisplayType.ExcludingTax) }), "returnurl=" + WebUtility.UrlEncode(rawUrl), null),
+        Selected = Model.CurrentTaxType == TaxDisplayType.ExcludingTax
+    });
+}
+<div class="tax-display-type-selector desktop">
+    <select id="customerTaxType" name="customerTaxType" asp-items="@taxTypes" onchange="setLocation(this.value);"></select>
+</div>
+
+<div class="tax-display-type-selector mobile mobile-selector">
+    <div class="current-tax-type-selector selector-title">@Model.CurrentTaxType</div>
+
+    <div class="tax-selector-options mobile-collapse">
+        <div class="selector-options-item">
+            <input type="radio" name="tax-type-selector" id="tax-type-0" value="@webHelper.ModifyQueryString(Url.RouteUrl("ChangeTaxType", new { customertaxtype = ((int)TaxDisplayType.IncludingTax) }), "returnurl=" + WebUtility.UrlEncode(rawUrl), null)" onclick="setLocation(this.value);" @Html.Raw(Model.CurrentTaxType == TaxDisplayType.IncludingTax ? " checked=\"checked\"" : string.Empty) />
+            <label for="tax-type-0">@T("Tax.Inclusive").Text</label>
+        </div>
+        <div class="selector-options-item">
+            <input type="radio" name="tax-type-selector" id="tax-type-1" value="@webHelper.ModifyQueryString(Url.RouteUrl("ChangeTaxType", new { customertaxtype = ((int)TaxDisplayType.ExcludingTax) }), "returnurl=" + WebUtility.UrlEncode(rawUrl), null)" onclick="setLocation(this.value);" @Html.Raw(Model.CurrentTaxType == TaxDisplayType.ExcludingTax ? " checked=\"checked\"" : string.Empty) />
+            <label for="tax-type-1">@T("Tax.Exclusive").Text</label>
+        </div>
+    </div>
+</div>

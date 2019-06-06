@@ -1,0 +1,126 @@
+﻿@model HeaderLinksModel
+@using System.Text.Encodings.Web
+<div class="header-links">
+    <div class="header-links-box">
+        @{
+            var threeItemsClass = string.Empty;
+            if (Model.AllowPrivateMessages && Model.IsAuthenticated)
+            {
+                threeItemsClass = "three-items";
+            }
+
+            var isAuthenticated = "not-authenticated";
+            if (Model.IsAuthenticated)
+            {
+                isAuthenticated = "is-authenticated";
+            }
+        }
+        @*<div class="header-links-box-top @isAuthenticated @threeItemsClass">
+                @await Component.InvokeAsync("Widget", new { widgetZone = "header_links_before" })
+                @if (Model.IsAuthenticated)
+                {
+                    <div class="header-link-wrapper account"><a href="@Url.RouteUrl("CustomerInfo")" title="@T("Account.MyAccount")" class="ico-account">@T("Account.MyAccount")@@Model.CustomerName@</a></div>
+                    if (Model.AllowPrivateMessages)
+                    {
+                        <div class="header-link-wrapper privatemessage">
+                            <a href="@Url.RouteUrl("PrivateMessages", new { tab = "" })" title="@T("PrivateMessages.Inbox")" class="ico-inbox">
+                                <span class="inbox-label">@T("PrivateMessages.Inbox")</span>
+                                <span class="inbox-unread">@Model.UnreadPrivateMessages</span>
+                            </a>
+                        </div>
+                    }
+                    <div class="header-link-wrapper logout"><a href="@Url.RouteUrl("Logout")" title="@T("Account.Logout")" class="ico-logout">@T("Account.Logout")</a></div>
+                }
+                else
+                {
+                    <div class="header-link-wrapper login"><a href="@Url.RouteUrl("Login")" title="@T("Account.Login")" class="ico-login">@T("Account.Login")</a></div>
+                    <div class="header-link-wrapper register"><a href="@Url.RouteUrl("Register")" title="@T("Account.Register")" class="ico-register">@T("Account.Register")</a></div>
+                }
+            </div>
+            @if (Model.WishlistEnabled)
+            {
+                <div class="header-links-box-bottom">
+                    <div class="header-link-wrapper ">
+                        <a href="@Url.RouteUrl("Wishlist")" title="@T("Wishlist")" class="ico-wishlist">
+                            <span class="wishlist-label">@T("Wishlist")</span>
+                            <span class="wishlist-qty">@T("Wishlist.HeaderQuantity", Model.WishlistItems)</span>
+                        </a>
+                    </div>
+                </div>
+            }
+            @await Component.InvokeAsync("Widget", new { widgetZone = "header_links_before" })*@
+        @if (Model.IsAuthenticated)
+        {
+            <div class="header-links-box__link is-active">
+                <a href="@Url.RouteUrl("CustomerInfo")" title="Login">
+                    <div class="header-links-box__link-icon">
+                        <img src="/Themes/Venture/content/img/avatar.png" alt="login" width="64" height="64">
+                    </div>
+                    <div>@T("Account.MyAccount")</div>
+                </a>
+            </div>
+            <div class="header-links-box__link is-active">
+                <a href="@Url.RouteUrl("Logout")" title="@T("Account.Logout")">
+                    <div class="header-links-box__link-icon">
+                        <img src="/Themes/Venture/content/img/logout.png" alt="login" width="64" height="68">
+                    </div>
+                    <div>@T("Account.Logout")</div>
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="header-links-box__link is-active">
+                <a href="@Url.RouteUrl("Login")" title="@T("Account.Login")">
+                    <div class="header-links-box__link-icon">
+                        <img src="/Themes/Venture/content/img/avatar.png" alt="login" width="64" height="64">
+                    </div>
+                    <div>@T("Account.Login")</div>
+                </a>
+            </div>
+        }
+        <div class="header-links-box__link is-active">
+            <a href="@Url.RouteUrl("Wishlist")" title="@T("Wishlist")">
+                <div class="header-links-box__link-icon">
+                    <img src="/Themes/Venture/content/img/heart.png" alt="wishlist" width="60" height="60">
+                </div>
+                <div>
+                    <span class="wishlist-label">@T("Wishlist")</span>
+                </div>
+            </a>
+        </div>
+    </div>
+    @if (Model.AllowPrivateMessages && !string.IsNullOrEmpty(Model.AlertMessage))
+    {
+        //new private message notification
+        <script type="text/javascript" asp-location="Footer">
+            $(document).ready(function () {
+                displayPopupNotification('@Html.Raw(JavaScriptEncoder.Default.Encode(Model.AlertMessage))', 'success', false);
+            });
+        </script>
+    }
+    @if (Model.ShoppingCartEnabled)
+    {
+        <script type="text/javascript" asp-location="Footer">
+            $(document).ready(function () {
+                $('.header').on('mouseenter', '#flyout-cart', function () {
+                    $(this).addClass('active');
+                }).on('mouseleave', '#flyout-cart', function () {
+                    $(this).removeClass('active');
+                });
+            });
+        </script>
+    }
+    @if (Model.IsAuthenticated) 
+    {
+        <script type="text/javascript" asp-location="Footer">
+            $(function () { $('html').addClass("UserLoggedIn");}); 
+        </script>
+    }
+    else
+    {
+        <script type="text/javascript" asp-location="Footer">
+            $(function () { $('html').addClass("UserNotLoggedIn");});
+        </script>
+    }
+</div>

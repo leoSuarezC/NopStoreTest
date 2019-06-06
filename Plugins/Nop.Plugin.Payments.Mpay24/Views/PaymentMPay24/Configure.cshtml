@@ -1,0 +1,94 @@
+﻿@model ConfigurationModel
+@inject Nop.Core.IWebHelper webHelper
+@using Nop.Plugin.Payments.MPay24.Models;
+@using Nop.Web.Framework;
+@{
+    Layout = "_ConfigurePlugin";
+}
+
+
+@await Component.InvokeAsync("StoreScopeConfiguration")
+@using (Html.BeginForm())
+{
+    <link rel="stylesheet" href="/Administration/Content/chosen.css" />
+    <script src="/Administration/Scripts/chosen.jquery.js" type="text/javascript"></script>
+    <table class="adminContent">
+        <tr>
+            <td colspan="2">
+                <b>Please ensure that nopCommerce primary currency matches MPay24 currency.</b>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                IPN Handler URL should be set to http://www.yourStore.com/Plugins/PaymentMPay24/IPNHandler/
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                <nop-label asp-for="SoapUserName" />
+            </td>
+            <td class="adminData">
+                @Html.EditorFor(model => model.SoapUserName)
+                @Html.ValidationMessageFor(model => model.SoapUserName)
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                <nop-label asp-for="SoapPassword" />
+            </td>
+            <td class="adminData">
+                @Html.EditorFor(model => model.SoapPassword)
+                @Html.ValidationMessageFor(model => model.SoapPassword)
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                <nop-label asp-for="AdditionalFee" />
+            </td>
+            <td class="adminData">
+                @Html.EditorFor(model => model.AdditionalFee)
+                @Html.ValidationMessageFor(model => model.AdditionalFee)
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                <nop-label asp-for="MerchantId" />
+            </td>
+            <td class="adminData">
+                @Html.TextBoxFor(model => model.MerchantId, new { @class = "text-box single-line valid" })
+                @Html.ValidationMessageFor(model => model.MerchantId)
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                <nop-label asp-for="PaymentOptions" />
+            </td>
+            <td class="adminData">
+                <select data-placeholder="Choose Payment Options..." class="chosen-select" multiple style="width: 350px;"
+                        tabindex="4" name="PaymentOptions" id="PaymentOptions">
+                    <option value=""></option>
+                    @foreach (string option in Model.PaymentOptionNames)
+                    {
+                        <option value="@option" @(Model.PaymentOptions != null && Model.PaymentOptions.Where(t => t.Trim().Equals(option)).Count() == 1 ? "selected" : "")>@option</option>
+                    }
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" width="100%">
+                <button type="submit" name="save" value="save" class="t-button">
+                    Save
+                </button>
+            </td>
+        </tr>
+    </table>
+
+    <script type="text/javascript">
+        var config = {
+            '.chosen-select': {}
+        }
+        for (var selector in config) {
+            $(selector).chosen(config[selector]);
+        }
+    </script>
+}

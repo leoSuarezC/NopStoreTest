@@ -1,0 +1,63 @@
+﻿@using Nop.Services.Security;
+@inject IPermissionService permissionService
+@{
+    Layout = "_Root.Head";
+
+    var shoppingCartEnabled = permissionService.Authorize(StandardPermissionProvider.EnableShoppingCart);
+    var wishlistEnabled = permissionService.Authorize(StandardPermissionProvider.EnableWishlist);
+}
+
+@await Component.InvokeAsync("Widget", new { widgetZone = "body_start_html_tag_after" })
+@await Html.PartialAsync("_Notifications")
+@await Html.PartialAsync("_JavaScriptDisabledWarning")
+@await Html.PartialAsync("_OldInternetExplorerWarning")
+
+<div class="master-wrapper-page">
+    @await Component.InvokeAsync("AdminHeaderLinks")
+    @await Html.PartialAsync("_Header")
+    <script type="text/javascript" asp-location="Footer">
+        (function () {
+            AjaxCart.init(false, '.header-links .cart-qty', '.header-links .wishlist-qty', '#flyout-cart');
+        })();
+    </script>
+    <div class="overlayOffCanvas"></div>
+    <div class="responsive-nav-wrapper-parent">
+        <div class="responsive-nav-wrapper">
+            <div class="menu-title">
+                <span>@T("SevenSpikes.Themes.Common.MenuTitle")</span>
+            </div>
+            <div class="mobile-logo">
+                @await Component.InvokeAsync("Logo")
+            </div>
+            <div class="search-wrap">
+                <span>@T("Search")</span>
+            </div>
+            @if (wishlistEnabled)
+            {
+                <div class="wishlist-link">
+                    <a href="@Url.RouteUrl("Wishlist")">@T("Wishlist")</a>
+                </div>
+            }
+            @if (shoppingCartEnabled)
+            {
+                <div class="shopping-cart-link">
+                    <a href="@Url.RouteUrl("ShoppingCart")">@T("ShoppingCart")</a>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="master-wrapper-content">
+        @await Component.InvokeAsync("Widget", new { widgetZone = "content_before" })
+        @if (IsSectionDefined("Breadcrumb"))
+        {
+            @RenderSection("Breadcrumb")
+        }
+        <div class="master-column-wrapper">
+            @RenderBody()
+        </div>
+        @await Component.InvokeAsync("Widget", new { widgetZone = "content_after" })
+    </div>
+    @await Component.InvokeAsync("Footer")
+</div>
+@await Component.InvokeAsync("EuCookieLaw")
+@await Component.InvokeAsync("Widget", new { widgetZone = "body_end_html_tag_before" })

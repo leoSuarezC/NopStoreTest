@@ -1,0 +1,20 @@
+[
+  "DiscountRequirement.MustBeAssignedToCustomerRole",
+  "ExternalAuth.Facebook",
+  "Pickup.PickupInStore",
+  "Shipping.FixedOrByWeight",
+  "Tax.FixedOrByCountryStateZip",
+  "Widgets.GoogleAnalytics",
+  "Widgets.NivoSlider",
+  "Payments.MPay24",
+  "SevenSpikes.Core",
+  "SevenSpikes.Theme.Venture",
+  "SevenSpikes.Nop.Plugins.JCarousel",
+  "SevenSpikes.Nop.Plugins.AnywhereSliders",
+  "SevenSpikes.Nop.Plugins.SaleOfTheDay",
+  "SevenSpikes.Nop.Plugins.MegaMenu",
+  "Payments.CashOnDelivery",
+  "Payments.PayPalStandard",
+  "Payments.Sofortuberweisung",
+  "Sws.Payments.Sofortuberweisung"
+]

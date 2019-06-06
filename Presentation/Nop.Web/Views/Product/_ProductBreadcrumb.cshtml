@@ -1,0 +1,62 @@
+﻿@model ProductDetailsModel.ProductBreadcrumbModel
+@using Nop.Core.Domain.Common
+@using Nop.Custom.Domain;
+@using Nop.Custom
+
+@inject CommonSettings commonSettings
+@{
+    var breadcrumbDelimiter = commonSettings.BreadcrumbDelimiter;
+}
+@if (Model.Enabled)
+{
+    <div class="breadcrumb">
+        <ul>
+            @await Component.InvokeAsync("Widget", new { widgetZone = "productbreadcrumb_before", additionalData = Model.ProductId })
+            <li>
+                <span itemscope itemtype="http://data-vocabulary.org/Breadcrumb">
+                    <a href="@Url.RouteUrl("HomePage")" itemprop="url">
+                        <span itemprop="title">@T("Products.Breadcrumb.Top")</span>
+                    </a>
+                </span>
+                <span class="delimiter">@breadcrumbDelimiter</span>
+            </li>
+            <li>
+                <span itemscope itemtype="http://data-vocabulary.org/Breadcrumb">
+                    <a href="@Url.RouteUrl("HauthalerProduktAnbieter")" itemprop="url">
+                        <span itemprop="title">Shop</span>
+                    </a>
+                </span>
+                <span class="delimiter">@breadcrumbDelimiter</span>
+            </li>
+            @{ string categoryTrail = "/kategorie";}
+            @foreach (var category in Model.CategoryBreadcrumb)
+            {
+                var item = ((IList<SeoMap>)ViewBag.CategorySeoMap).Where(t => t.text_orig == category.Name).FirstOrDefault();
+                var url = "";
+                if (item != null)
+                {
+                    url = "/" + item.text_seo;
+                }
+                else
+                {
+                    url = "/" + category.Name;
+                }
+                <li>
+                    <span itemscope itemtype="http://data-vocabulary.org/Breadcrumb">
+                        <a href="@(categoryTrail  + url)" itemprop="url">
+                            <span itemprop="title">@category.Name</span>
+                        </a>
+                    </span>
+                    <span class="delimiter">@breadcrumbDelimiter</span>
+                </li>
+                categoryTrail += url;
+            }
+            <li>
+                <strong class="current-item">@Model.ProductName</strong>
+                @*<strong class="current-item"><a href="@Url.RouteUrl("Product", new { SeName = Model.ProductSeName })" itemprop="url">@Model.ProductName</a></strong>*@
+                @await Component.InvokeAsync("Widget", new { widgetZone = "productbreadcrumb_after", additionalData = Model.ProductId })
+            </li>
+        </ul>
+    </div>
+
+}

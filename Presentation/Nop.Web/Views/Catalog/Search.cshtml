@@ -1,0 +1,347 @@
+﻿@model System.Collections.Specialized.NameValueCollection
+@using System.Collections.Specialized
+@using Microsoft.AspNetCore.Http;
+@using Microsoft.AspNetCore.Mvc
+@using System.Text
+@using System.Globalization
+
+@using Nop.Custom
+@using Omikron.FactFinder
+@using Omikron.FactFinder.Data
+@using Omikron.FactFinder.Adapter
+@using Omikron.FactFinder.Core
+@using Omikron.FactFinder.Core.Client
+@using Omikron.FactFinder.Core.Page
+@using Omikron.FactFinder.Core.Server
+@using Omikron.FactFinder.Core.Configuration
+
+@{
+    // Uncomment as necessary for localization testing
+    // (If all lines are uncommented, the request's preferred language will be used)
+
+    // Culture = "de-de"; UICulture = "de-de";
+    // Culture = "en-gb"; UICulture = "en-gb";
+    // Culture = "en-us"; UICulture = "en-us";
+    Omikron.FactFinder.Util.HttpContextFactory.Current = Context;
+    //ViewData["Title"] = String.Format("The is the page for {0}", Context.Request.Query["query"]);
+    var requestParser = new RequestParser();
+    var requestParameters = requestParser.RequestParameters;
+    requestParameters.Add(Model);
+    var requestFactory = new HttpRequestFactory(requestParameters);
+    var clientUrlBuilder = new Omikron.FactFinder.Core.Client.UrlBuilder(requestParser);
+
+    Search searchAdapter = new Search(requestFactory.GetRequest(), clientUrlBuilder);
+    searchAdapter.Sid = "FF_SPECIFIC_SID_TO_BE_SET";
+    TagCloud tagCloudAdapter = (ModulesSection.GetInstance().UseTagcloud) ? new TagCloud(requestFactory.GetRequest(), clientUrlBuilder) : null;
+
+    SearchParameters ffParameters = new SearchParameters(requestParameters);
+    ViewData["ffParameters"] = ffParameters;
+
+    var trackingEvents = new Dictionary<EventType, NameValueCollection>();
+    ViewData["trackingEvents"] = trackingEvents;
+
+    try
+    {
+        ViewData["campaigns"] = searchAdapter.Campaigns;
+
+        if ((ViewData["campaigns"] as CampaignList).HasRedirect())
+        {
+            Context.Response.Redirect((ViewData["campaigns"] as CampaignList).GetRedirectUrl().ToString(), true); // execution ends here
+        }
+
+        ViewData["status"] = searchAdapter.SearchStatus;
+        ViewData["isArticleNumberSearch"] = searchAdapter.IsArticleNumberSearch;
+        ViewData["isSearchTimedOut"] = searchAdapter.IsSearchTimedOut;
+
+        ViewData["productsPerPageOptions"] = searchAdapter.ProductsPerPageOptions;
+        ViewData["breadCrumbTrail"] = searchAdapter.BreadCrumbTrail;
+        ViewData["singleWordSearch"] = searchAdapter.SingleWordSearch;
+        ViewData["paging"] = searchAdapter.Paging;
+        ViewData["sorting"] = searchAdapter.Sorting;
+        ViewData["asn"] = searchAdapter.Asn;
+        ViewData["result"] = searchAdapter.Result;
+        if (tagCloudAdapter != null)
+        {
+            ViewData["tagCloud"] = tagCloudAdapter.TagCloudData;
+        }
+
+        ViewData["util"] = new RenderHelper(ffParameters, searchAdapter);
+
+        switch ((SearchStatus)ViewData["status"])
+        {
+            case SearchStatus.ResultsFound:
+                break;
+            case SearchStatus.EmptyResult:
+                break;
+            case SearchStatus.NoResult:
+                break;
+            default://error
+                break;
+        }
+    }
+    catch (Search.NoQueryException)
+    {
+    }
+}
+@{
+    Layout = "_ColumnsTwo";
+
+    //title
+    Html.AddTitleParts(T("PageTitle.Search").Text);
+    //page class
+    Html.AppendPageCssClassParts("html-search-page");
+}
+@{
+    var campaigns = ViewData["campaigns"] as CampaignList;
+    var result = ViewData["result"] as ResultRecords;
+    var asn = ViewData["asn"] as AfterSearchNavigation;
+
+    <div class="product-selectors">
+        @if (result != null && result.Count > 0 && !ffParameters.IsNavigation)
+        {
+            var sorting = ViewData["sorting"] as IList<Item>;
+            <div class="product-sorting">
+                <span>@T("Catalog.OrderBy")</span>
+                <select onchange='document.location.href=this.value;'>
+                    @foreach (Item sortItem in sorting)
+                    {
+                        var label = sortItem.Label;
+                        var name = T(label.Replace("sort.", "").Replace("Asc", "").Replace("Desc", "")).ToString();
+                        label = String.Format("{0} {1}", (label.ToLower().Contains("relevance") ? "Relevanz" : name),
+                                                                (label.ToLower().Contains("relevance") ? "" : (label.ToLower().EndsWith("asc") ? "aufsteigend" : "absteigend")));
+
+                        @Html.Raw("<option value='" + sortItem.Url + "' " + (sortItem.Selected ? "selected" : "") + " >" + (sortItem.Selected ? String.Format("{0} ({1})", label, "Selected") : label) + "</option>");
+                    }
+                </select>
+            </div>
+            <div class="product-page-size">
+                <span>@T("Catalog.PageSize")</span>
+                @{
+                    var productsPerPageOptions = ViewData["productsPerPageOptions"] as ProductsPerPageOptions;
+                }
+                <select onchange="document.location.href=this.value;">
+                    @foreach (Item option in productsPerPageOptions)
+                    {
+                        @Html.Raw("<option value='" + option.Url + "' " + (option.Selected ? "selected" : "") + " >" + option.Label + "</option>");
+                    }
+                </select>
+                <span>@T("Catalog.PageSize.PerPage")</span>
+            </div>
+        }
+    </div>
+
+    <div class="search-results">
+        <div class="product-grid">
+            <div class="item-grid">
+
+                @foreach (Record record in result)
+                {
+                    ViewData["record"] = record;
+                    //var record = ViewData["record"] as Record;
+                    var util = ViewData["util"] as RenderHelper;
+
+                    string articleNr = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductNumber);
+                    string title = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductName);
+                    string price = (string)record.GetFieldValue(FieldsSection.GetInstance().Price);
+                    string description = (string)record.GetFieldValue(FieldsSection.GetInstance().Description);
+                    string imageUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().BildUrl);
+                    string detailUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductUrl);
+                    string sid = "FF_SPECIFIC_SID_TO_BE_SET";
+                    <div class="item-box">
+                        <div class="product-item" data-productid="@articleNr">
+                            <div class="picture">
+                                <a href="@detailUrl" onclick="@(util.CreateJavaScriptClickCode(record, sid))">
+                                    <img valign="top" src="@imageUrl" alt="no picture"
+                                         title="@title" onload="resizePicture(this, 120, 170)" onerror="imageNotFound(this)"
+                                         onmouseover="TagToTip('descr@(articleNr)', SHADOW, true)" onmouseout="UnTip()" />
+                                </a>
+                            </div>
+                            <div class="details">
+                                <h2 class="product-title">
+                                    <a href="@(detailUrl)">
+                                        @{
+                                            if (title.Length > 23)
+                                            {
+                                                <text>@(title.Substring(0, 20))...</text>
+                                            }
+                                            else
+                                            {
+                                                <text>@title</text>
+                                            }
+                                        }
+                                    </a>
+                                </h2>
+                            </div>
+                            <div class="description">
+                                @description
+                            </div>
+                            <div class="add-info">
+                                <div class="prices">
+                                    <span class="price actual-price">@price</span>
+                                </div>
+                                <div class="buttons">
+                                    <input type="button" value="Add to cart" class="button-2 product-box-add-to-cart-button" onclick="AjaxCart.addproducttocart_catalog('http:');return false;" />
+                                    <input type="button" value="@T("ShoppingCart.AddToWishlist")" title="@T("ShoppingCart.AddToWishlist")" class="button-2 add-to-wishlist-button" onclick="AjaxCart.addproducttocart_catalog('/addproducttocart/catalog/@(articleNr)/2/1');return false;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+
+            </div>
+        </div>
+    </div>
+    <div class="clear">&nbsp;</div>
+    if (result != null && result.Count > 0 && !ffParameters.IsNavigation)
+    {
+        var paging = ViewData["paging"] as Paging;
+
+
+        <div class="pager">
+            @if (paging != null && paging.PageCount > 1)
+            {
+                <ul>
+                    <li>
+
+                        @if (paging.PreviousPageLink != null)
+                        {
+                            <a href="@(paging.PreviousPageLink.Url)">PreviousPage</a>
+                        }
+                    </li>
+                    @foreach (Item page1 in paging)
+                    {
+                        <li>
+                            @if (page1.Selected)
+                            {
+                                <span class="paging currentPage">@page1.Label</span>
+                            }
+                            else
+                            {
+                                <a class="paging" href="@(page1.Url)">@page1.Label</a>
+                            }
+                        </li>
+                    }
+
+                    <li>
+                        @if (paging.NextPageLink != null)
+                        {
+                            <a href="@(paging.NextPageLink.Url)">NextPage</a>
+                        }
+                    </li>
+
+                </ul>
+            }
+            else
+            {
+                @String.Format("{0} of {1}", 1, 1)
+            }
+        </div>
+
+
+    }
+
+}
+@section left{
+    @if (asn != null)
+    {
+        foreach (AsnGroup group in asn)
+        {
+            <div class="block block-category-navigation">
+                <div class="title">
+                    <strong>@group.Name</strong>
+                </div>
+                <div class="listbox">
+                    <ul class="list">
+                        @switch (group.Style)
+                        {
+                            case AsnGroupStyle.Slider:
+                                foreach (AsnSliderItem slider in group)
+                                {
+                                    <!-- OneTouchSlider setup script -->
+                                    <script>
+                                    // This is needed for currency symbols defined as HTML entities
+                                    function htmlDecode(input){
+                                    var e = document.createElement('div');
+                                    e.innerHTML = input;
+                                    return e.childNodes.length === 0 ? "" : e.childNodes[0].nodeValue;
+                                    }
+                                    @*We use the ToString() versions that take an IFormatProvider and supply the
+                                    invariant culture, so that floating point numbers are serialized with a decimal
+                                    point regardless of the current culture.*@
+                                    function oneTouchSliderOnLoad() {
+                                    oneTouchSlider.addSlider({
+                                    hostElementId: 'price-slider',
+                                    leftBorder: @(slider.AbsoluteMinimum.ToString(CultureInfo.InvariantCulture)),
+                                    rightBorder: @(slider.AbsoluteMaximum.ToString(CultureInfo.InvariantCulture)),
+                                    currentLeft: @(slider.SelectedMinimum.ToString(CultureInfo.InvariantCulture)),
+                                    currentRight: @(slider.SelectedMaximum.ToString(CultureInfo.InvariantCulture)),
+                                    unit: '@(group.Unit)',
+                                    callback: sliderSelect
+                                    });
+                                    }
+
+                                    function sliderSelect(left, right) {
+                                    window.location.href="@(Html.Raw(slider.BaseUrl))"+left+" - "+right;
+                                    }
+                                    </script>
+                                    @Html.Raw("<div id='price-slider' style='padding:20px;'></div>")
+                                }
+                                break;
+                            default:
+                                int linkCount = 0;
+                                foreach (AsnFilterItem item in group)
+                                {
+                                    if (item.Selected)
+                                    {
+                                        <li class="asnElement selected lvl@(item.ClusterLevel)">
+                                            @if (group.SelectionType == AsnGroupSelectionType.singleShowUnselected)
+                                            {
+                                                <input type="radio" checked="checked" name="@(item.Label)" id="@(item.Label)" value="@(item.Url)" onchange="if (this.value != '') {document.location.href=this.value;}">
+                                                <label for="@(item.Label)">@(item.Label) @group.Unit</label>
+                                            }
+                                            else if (group.Style == AsnGroupStyle.MultiSelect)
+                                            {
+                                                <input type="checkbox" checked="checked" name="@(item.Label)" id="@(item.Label)" value="@(item.Url)" onchange="if (this.value != '') {document.location.href=this.value;}">
+                                                <label for="@(item.Label)">@(item.Label) @group.Unit</label>
+                                            }
+                                            else
+                                            {
+                                                <a href="@(item.Url)">
+                                                    @item.Label @group.Unit<br /> <span>(RemoveFilter)</span>
+                                                </a>
+                                            }
+                                        </li>
+                                    }
+                                    else
+                                    {
+
+                                        <li class="asnElement lvl@(item.ClusterLevel)">
+                                            @if (group.SelectionType == AsnGroupSelectionType.singleShowUnselected)
+                                            {
+                                                <input type="radio" name="@(item.Label)" id="@(item.Label)" value="@(item.Url)" onchange="if (this.value != '') {document.location.href=this.value;}">
+                                                <label for="@(item.Label)">@(item.Label) @group.Unit (@item.MatchCount)</label>
+                                            }
+                                            else if (group.Style == AsnGroupStyle.MultiSelect)
+                                            {
+                                                <input type="checkbox" name="@(item.Label)" id="@(item.Label)" value="@(item.Url)" onchange="if (this.value != '') {document.location.href=this.value;}">
+                                                <label for="@(item.Label)">@(item.Label) @group.Unit (@item.MatchCount)</label>
+                                            }
+                                            else
+                                            {
+                                                <a href="@(item.Url)">@item.Label @group.Unit <span>(@item.MatchCount)</span></a><br />
+                                            }
+                                        </li>
+                                        linkCount++;
+                                    }
+                                }
+
+                                break;
+                        }
+                    </ul>
+                </div>
+            </div>
+
+        }
+    }
+}

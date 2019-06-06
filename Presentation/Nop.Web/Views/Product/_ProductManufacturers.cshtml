@@ -1,0 +1,38 @@
+﻿@model IList<ManufacturerBriefInfoModel>
+@using Nop.Custom.Domain;
+
+@using Nop.Custom
+@using Omikron.FactFinder
+@using Omikron.FactFinder.Data
+@using Omikron.FactFinder.Adapter
+@using Omikron.FactFinder.Core
+@using Omikron.FactFinder.Core.Client
+@using Omikron.FactFinder.Core.Page
+@using Omikron.FactFinder.Core.Server
+@using Omikron.FactFinder.Core.Configuration
+@using Omikron.FactFinder.Util
+
+@if (Model.Count > 0)
+{
+    <div class="manufacturers">
+        @if (Model.Count == 1)
+        {
+            <span class="label">@T("Products.Manufacturer"):</span>
+        }
+        else
+        {
+            <span class="label">@T("Products.Manufacturers"):</span>
+        }
+        <span class="value">
+            @for (var i = 0; i < Model.Count; i++)
+            {
+                var item = Model[i];
+                <a href="@(("?filterMarke=" + item.Name).GetFactFinderUrl())">@item.Name</a>
+                if (i != Model.Count - 1)
+                {
+                    <span class="separator">,</span>
+                }
+            }
+        </span>
+    </div>
+}

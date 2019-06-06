@@ -1,0 +1,654 @@
+﻿@model ProductDetailsModel
+@using Microsoft.AspNetCore.Http.Extensions
+@using Nop.Core.Domain.Seo
+@using Nop.Core.Domain.Catalog
+
+@using Nop.Custom
+@using Nop.Custom.Domain;
+@using Omikron.FactFinder
+@using Omikron.FactFinder.Data
+@using Omikron.FactFinder.Adapter
+@using Omikron.FactFinder.Core
+@using Omikron.FactFinder.Core.Client
+@using Omikron.FactFinder.Core.Page
+@using Omikron.FactFinder.Core.Server
+@using Omikron.FactFinder.Core.Configuration
+@using Omikron.FactFinder.Util
+
+@inject SeoSettings seoSettings
+@inject CatalogSettings catalogSettings
+@{
+    Layout = "_ColumnsOne";
+    string sizesOrder = ", XXXS,3XS,XXS, 2XS,XS,S, S / 8, S / 30,S = 44 - 46,M, M / 9, M = 9, M / 8 - 9, M / 32,M = 46 - 48,L, L / 10, L = 10, L / 34,L = 50 - 52,XL, XL / 11, XL = 11, XL / 36,XL = 54 - 56,XXL, 2XL, 2XL/ 12, XXL / 38, 2XL= 58 - 60,XXXL, 3XL, 3XL/ 13, XXXL / 40, 3XL= 62 - 64,XXXXL / 42,.,";
+    //title
+    Html.AddTitleParts(!String.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
+    //meta
+    Html.AddMetaDescriptionParts(Model.MetaDescription);
+    Html.AddMetaKeywordParts(Model.MetaKeywords);
+    //page class
+    Html.AppendPageCssClassParts("html-product-details-page");
+
+    //canonical URL
+    if (seoSettings.CanonicalUrlsEnabled)
+    {
+        var productUrl = Url.RouteUrl("Product", new { SeName = Model.SeName }, this.Url.ActionContext.HttpContext.Request.Scheme);
+        Html.AddCanonicalUrlParts(productUrl, seoSettings.QueryStringInCanonicalUrlsEnabled);
+    }
+
+    var showShareButton = catalogSettings.ShowShareButton;
+
+    //open graph META tags
+    if (seoSettings.OpenGraphMetaTags)
+    {
+        Html.AddHeadCustomParts("<meta property=\"og:type\" content=\"product\" />");
+        Html.AddHeadCustomParts("<meta property=\"og:title\" content=\"" + Html.Encode(Model.Name) + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"og:description\" content=\"" + Html.Encode(Nop.Core.Html.HtmlHelper.StripTags(Model.MetaDescription)) + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"og:image\" content=\"" + Model.DefaultPictureModel.ImageUrl + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"og:url\" content=\"" + this.Url.ActionContext.HttpContext.Request.GetEncodedUrl() + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"og:site_name\" content=\"" + Html.Encode(Model.CurrentStoreName) + "\" />");
+    }
+
+    //Twitter META tags
+    if (seoSettings.TwitterMetaTags)
+    {
+        Html.AddHeadCustomParts("<meta property=\"twitter:card\" content=\"summary\" />");
+        Html.AddHeadCustomParts("<meta property=\"twitter:site\" content=\"" + Html.Encode(Model.CurrentStoreName) + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"twitter:title\" content=\"" + Html.Encode(Model.Name) + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"twitter:description\" content=\"" + Html.Encode(Nop.Core.Html.HtmlHelper.StripTags(Model.MetaDescription)) + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"twitter:image\" content=\"" + Model.DefaultPictureModel.ImageUrl + "\" />");
+        Html.AddHeadCustomParts("<meta property=\"twitter:url\" content=\"" + this.Url.ActionContext.HttpContext.Request.GetEncodedUrl() + "\" />");
+    }
+    Omikron.FactFinder.Util.HttpContextFactory.Current = Context;
+    var requestParser = new RequestParser();
+    var requestParameters = requestParser.RequestParameters;
+    var requestFactory = new HttpRequestFactory(requestParameters);
+    var clientUrlBuilder = new Omikron.FactFinder.Core.Client.UrlBuilder(requestParser);
+    var recommendationAdapter = new Recommendation(requestFactory.GetRequest(), clientUrlBuilder);
+    var similarProductsAdapter = new SimilarRecords(requestFactory.GetRequest(), clientUrlBuilder);
+    IList<string> productIds = new List<string>();
+    productIds.Add(Model.Id.ToString());
+
+    ViewData["util"] = new RenderHelper(new SearchParameters(requestParameters), new Search(requestFactory.GetRequest(), clientUrlBuilder));
+
+    for (int i = Model.AssociatedProducts.Count - 1; i >= 0; i--) //remove products without attributes
+    {
+        productIds.Add(Model.AssociatedProducts[i].Id.ToString());
+        if (Model.AssociatedProducts[i].ProductAttributes.Count == 0)
+        {
+            Model.AssociatedProducts.RemoveAt(i);
+        }
+    }
+    //productIds.Clear();
+    //productIds.Add("1460579");
+
+    recommendationAdapter.SetProductIDs(productIds);
+    similarProductsAdapter.SetProductID(productIds.Last());
+    var recommendations = recommendationAdapter.Recommendations;
+    var similarProducts = similarProductsAdapter.Records;
+}
+<!--product breadcrumb-->
+@section Breadcrumb
+    {
+    @await Html.PartialAsync("_ProductBreadcrumb", Model.Breadcrumb)
+}
+@await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_after_breadcrumb", additionalData = Model.Id })
+<div class="page product-details-page grouped-product-details-page1">
+    <div class="page-body">
+        @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_top", additionalData = Model.Id })
+        <div itemscope itemtype="http://schema.org/Product" data-productid="@Model.Id">
+            <div class="product-essential-wrapper">
+                <div class="product-essential">
+                    @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_before_pictures", additionalData = Model.Id })
+                    @{
+                        var cloudZoom = await Component.InvokeAsync("Widget", new { widgetZone = "sevenspikes_cloud_zoom" });
+                    }
+                    @if (!String.IsNullOrEmpty(cloudZoom.ToHtmlString()))
+                    {
+                        @cloudZoom
+                    }
+                    else
+                    {
+                        foreach (var variant in Model.AssociatedProducts)
+                        {
+                            <div class="picSection picSection@(variant.Id)">
+                                @await Html.PartialAsync("_ProductDetailsPictures", variant)
+                            </div>
+                        }
+                    }
+                    @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_after_pictures", additionalData = Model.Id })
+                    <div class="overview">
+                        @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_overview_top", additionalData = Model.Id })
+
+                        <div class="product-name">
+                            <h1 itemprop="name">
+                                @if (!string.IsNullOrEmpty(Model.GroupedProductName) && !Model.Name.Equals(Model.GroupedProductName))
+                                {
+                                    @Model.GroupedProductName <text>[@Model.Name]</text>
+                                }
+                                else
+                                {
+                                    @Model.Name
+                                }
+                            </h1>
+                            @Model.AdminComment
+                        </div>
+
+                        @await Html.PartialAsync("_Discontinued", Model)
+
+                        <!--product manufacturers-->
+                        @await Html.PartialAsync("_ProductManufacturers", Model.ProductManufacturers)
+
+                        @foreach (var variant in Model.AssociatedProducts)
+                        {
+                            <!--SKU, MAN, GTIN, vendor-->
+                            <span style="display:none;" class="section section@(variant.Id)">
+                                @await Html.PartialAsync("_SKU_Man_GTIN_Ven", variant)
+                            </span>
+                        }
+                        @if (!String.IsNullOrEmpty(Model.AdminComment))
+                        {
+                            <span class="label">Abgrenzung: </span><span class="value">@Model.AdminComment</span>
+                        }
+                        <!--product reviews-->
+                        @await Html.PartialAsync("_ProductReviewOverview", Model.ProductReviewOverview)
+                        @foreach (var variant in Model.AssociatedProducts)
+                        {
+                            <span style="display:none;width:100%;padding:0" class="section section@(variant.Id)">
+                                @{
+                                    var dataDictPrice = new ViewDataDictionary(ViewData);
+                                    dataDictPrice.TemplateInfo.HtmlFieldPrefix = $"price_{variant.Id}";
+                                    @await Html.PartialAsync("_ProductPrice", variant.ProductPrice, dataDictPrice)
+
+                                    @await Html.PartialAsync("_ProductTierPrices", variant.TierPrices)
+                                }
+                            </span>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.ShortDescription))
+                        {
+                            <div class="short-description">
+                                @Html.Raw(Model.ShortDescription)
+                            </div>
+                        }
+
+
+                        <div class="availability-attributes-wrapper">
+                            <!--attributes-->
+                            @{
+                                IList<ProductDetailsModel.ProductAttributeModel> productAttributes = new List<ProductDetailsModel.ProductAttributeModel>();
+                            }
+                            @foreach (var variant in Model.AssociatedProducts)
+                            {
+                                string sizeName = "", colorName = "";
+                                var size = variant.ProductAttributes.Where(pa => pa.Name.ToLower() == "size").FirstOrDefault();
+                                var sizeId = 0;
+                                if (size != null) //A.V what about multiple sizes?
+                                {
+                                    sizeName = size.Values[0].Name;
+                                    sizeId = size.Values[0].Id;
+                                }
+
+                                var color = variant.ProductAttributes.Where(pa => pa.Name.ToLower() == "color").FirstOrDefault();
+                                var colorId = 0;
+                                if (color != null) //A.V what about multiple colors?
+                                {
+                                    colorName = color.Values[0].Name;
+                                    colorId = color.Values[0].Id;
+                                }
+                                sizeName = sizeName.Replace("/", "_").Replace("=", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+                                colorName = colorName.Replace("/", "_").Replace("=", "_").Replace("-", "_").Replace(" ", "_").Replace(".", "_");
+                                string prefix = "attrib_";
+                                //A.V what about if same size and color combination is present in a different associated product? I think that is not possible as we have unique combination of size and color as per my knowledge.
+                                @Html.Raw("<script> var " + (prefix + sizeName + colorName).ToLower() + "=" + variant.Id + "; var " + (prefix + colorName + sizeName).ToLower() + "=" + variant.Id + ";</script>")
+                                @Html.Raw("<script> var " + prefix + sizeName.ToLower() + variant.Id + "=" + sizeId + "; var " + prefix + colorName.ToLower() + variant.Id + "=" + colorId + ";</script>")
+                                foreach (var attribute in variant.ProductAttributes)//2 attributes - Size, Color
+                                {
+                                    attribute.IsRequired = true;
+                                    var existingAttribute = productAttributes.Where(pa => pa.Name == attribute.Name).FirstOrDefault();
+                                    if (existingAttribute != null) //if same  attribute present, add its values
+                                    {
+                                        foreach (var value in attribute.Values)//loop through values to add values making sure they are unqiue
+                                        {
+                                            var existingValue = existingAttribute.Values.Where(pv => pv.Name == value.Name).FirstOrDefault();
+                                            if (existingValue == null) //add attribute value only if it is not present yet in the values collection
+                                            {
+                                                existingAttribute.Values.Add(value);
+                                            }
+                                        }
+                                    }
+                                    else//not present so add the attribute
+                                    {
+                                        productAttributes.Add(attribute);
+                                    }
+                                }
+                            }
+                            @foreach (var variant in Model.AssociatedProducts)
+                            {
+                                <span style="display:none;padding:0" class="section section@(variant.Id)">
+                                    <!--rental info-->
+                                    @{
+                                        var dataDictRental = new ViewDataDictionary(ViewData);
+                                        dataDictRental.TemplateInfo.HtmlFieldPrefix = $"rental_{variant.Id}";
+                                        @await Html.PartialAsync("_RentalInfo", variant, dataDictRental)
+                                    }
+                                    <!--availability-->
+                                    @if (!String.IsNullOrWhiteSpace(variant.StockAvailability))
+                                    {
+                                        <div class="availability">
+                                            <div class="stock">
+                                                <span class="label">@T("Products.Availability"):</span>
+                                                <span class="value @variant.StockAvailability.ToLower().Replace(" ","-").Replace("ü","ue")" id="stock-availability-value-@variant.Id">@variant.StockAvailability</span>
+                                            </div>
+                                            @*<div class="stock-text" id="stock-availability-text-@variant.Id">
+                                                    @if (variant.StockAvailability.ToLower().Contains("verfügbar"))
+                                                    {
+                                                        <text>Lieferzeit: 2-3 Werktage</text>
+                                                    }
+                                                </div>*@
+                                        </div>
+                                    }
+                                </span>
+                            }
+                            @{
+                                string[] sizes = sizesOrder.Split(',');
+                                //Sort sizes by sizesOrder
+                                foreach (var item in productAttributes)
+                                {
+                                    var values = item.Values;
+                                    IList<ProductDetailsModel.ProductAttributeValueModel> sortedValues = new List<ProductDetailsModel.ProductAttributeValueModel>();
+                                    foreach (string size in sizes)
+                                    {
+                                        foreach (var value in values)
+                                        {
+                                            if (size == value.Name)
+                                            {
+                                                sortedValues.Add(value);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    //add missing values which were not sorted
+                                    foreach (var value in values)
+                                    {
+                                        var existingValue = sortedValues.Where(pv => pv.Name == value.Name).FirstOrDefault();
+                                        if(existingValue == null)
+                                        {
+                                            sortedValues.Add(value);
+                                        }
+                                    }
+                                    item.Values = sortedValues;
+                                }
+                                var dataDictAttributes1 = new ViewDataDictionary(ViewData);
+                                dataDictAttributes1.TemplateInfo.HtmlFieldPrefix = $"attributes_1";
+                                @await Html.PartialAsync("_ProductAttributes", productAttributes, null)
+                            }
+                        </div>
+
+                        <!--compare, email a friend-->
+                        <div class="overview-buttons">
+                            @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_inside_overview_buttons_before", additionalData = Model.Id })
+                            @foreach (var variant in Model.AssociatedProducts)
+                            {
+                                <form asp-route="Product" asp-route-sename="@Model.SeName" method="post" id="product-details-form@(variant.Id)">
+                                    @{
+                                        var size = variant.ProductAttributes.Where(pa => pa.Name.ToLower() == "size").FirstOrDefault();
+                                        if (size != null)
+                                        {
+                                            <input type="hidden" id="size@(variant.Id)" name="product_attribute_@size.Id" />
+                                        }
+                                        var color = variant.ProductAttributes.Where(pa => pa.Name.ToLower() == "color").FirstOrDefault();
+                                        if (color != null)
+                                        {
+                                            <input type="hidden" id="color@(variant.Id)" name="product_attribute_@color.Id" />
+                                        }
+                                    }
+                                    <span style="display:none;" class="overview-buttons section section@(variant.Id)">
+                                        <!--add to cart-->
+                                        @{
+                                            int colorId = 0;
+                                            int sizeId = 0;
+                                            if (productAttributes[0] != null)
+                                            {
+                                                if (productAttributes[0].Description.ToLower() == "farbe")
+                                                {
+                                                    colorId = productAttributes[0].Id;
+                                                }
+                                                else if (productAttributes[0].Description.ToLower() == "größe")
+                                                {
+                                                    sizeId = productAttributes[0].Id;
+                                                }
+                                            }
+                                            if (productAttributes[1] != null)
+                                            {
+                                                if (productAttributes[1].Description.ToLower() == "farbe")
+                                                {
+                                                    colorId = productAttributes[1].Id;
+                                                }
+                                                else if (productAttributes[1].Description.ToLower() == "größe")
+                                                {
+                                                    sizeId = productAttributes[1].Id;
+                                                }
+                                            }
+                                            var dataDictAddToCart = new ViewDataDictionary(ViewData);
+                                            dataDictAddToCart.TemplateInfo.HtmlFieldPrefix = $"addtocart_{variant.Id}";
+                                            if (!String.IsNullOrWhiteSpace(variant.StockAvailability) && !variant.StockAvailability.Contains("nicht"))
+                                            {
+                                                @await Html.PartialAsync("_AddToCartGrouped", variant.AddToCart, dataDictAddToCart)
+                                            }
+                                            else
+                                            {
+                                                <a href="" class="button-1 add-to-cart-button" id="outofstockrequest@(variant.Id)">@T("ShoppingCart.OutOfStock.Request")</a>
+                                                <script>
+                                                // get 'out of stock' product details once clicked on request button
+                                                    $('#outofstockrequest@(variant.Id)').click(function() {
+                                                        var color = $('#product_attribute_@sizeId option:selected').html();
+                                                        var size = $('#product_attribute_@colorId option:selected').html();
+                                                        $(this).attr('href', "@Url.Action("ContactUs", "Common")" + "?outofstockid=" + @Model.Id + "&color=" + color + "&size=" + size);
+                                                        return true;
+                                                    })
+                                                </script>
+                                            }
+                                        }
+
+                                        <!--wishlist-->
+                                        @if (!variant.AddToCart.DisableWishlistButton)
+                                        {
+                                            <div class="wishlist-button-wrapper" title="@T("products.wishlist.addtowishlist")">
+                                                @{
+                                                    var dataDictAddToWishlist = new ViewDataDictionary(ViewData);
+                                                    dataDictAddToWishlist.TemplateInfo.HtmlFieldPrefix = $"addtocart_{variant.Id}";
+                                                    @await Html.PartialAsync("_AddToWishlist", variant.AddToCart, dataDictAddToWishlist)
+                                                }
+                                            </div>
+                                        }
+
+                                        <!--compare button-->
+                                        @if (Model.CompareProductsEnabled)
+                                        {
+                                            <div class="compare-products-wrapper" title="@T("products.compare.addtocomparelist")">
+                                                @await Html.PartialAsync("_CompareProductsButton", Model)
+                                            </div>
+                                        }
+
+                                        <!--email a friend button-->
+                                        @if (Model.EmailAFriendEnabled)
+                                        {
+                                            <div class="email-a-friend-button-wrapper" title="@T("products.emailafriend")">
+                                                @await Html.PartialAsync("_ProductEmailAFriendButton", Model)
+                                            </div>
+                                        }
+
+
+                                        <!--back in stock subscription button-->
+                                        @if (!String.IsNullOrWhiteSpace(variant.StockAvailability) && variant.DisplayBackInStockSubscription)
+                                        {
+                                            <div class="back-in-stock-subscription-button-wrapper" title="@T("backinstocksubscriptions.notifymewhenavailable")">
+                                                @await Html.PartialAsync("_BackInStockSubscription", variant)
+                                            </div>
+                                        }
+                                        @*@{
+                                                var product = Nop.Core.Infrastructure.EngineContext.Current.Resolve<Nop.Services.Catalog.IProductService>().GetProductById(Model.Id);
+                                                var stockMessage = string.Empty;
+                                                if (product != null)
+                                                {
+                                                    stockMessage = product.StockQuantity == 0 ? T("ShoppingCart.OutOfStock").ToString() : T("ShoppingCart.AvailableInStock").ToString();
+                                                }
+
+                                            }
+                                            <span>@Html.Raw(stockMessage)</span>*@
+                                        <!--sample download button-->
+                                        @if (variant.HasSampleDownload)
+                                        {
+                                            <div class="download-sample-button-wrapper" title="@T("products.downloadsample")">
+                                                @await Html.PartialAsync("_DownloadSample", variant)
+                                            </div>
+                                        }
+                                    </span>
+                                </form>
+                            }
+
+                            @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_inside_overview_buttons_after", additionalData = Model.Id })
+                        </div>
+
+                        @await Component.InvokeAsync("Widget", new { widgetZone = "venture_theme_submit_ticket_product_page_button", additionalData = Model.Id })
+
+                        @if (showShareButton)
+                        {
+                            @await Html.PartialAsync("_ShareButton", Model)
+                        }
+                        @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_overview_bottom", additionalData = Model.Id })
+                    </div>
+                </div>
+            </div>
+            <div class="product-page-bottom">
+                @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_before_collateral", additionalData = Model.Id })
+                <div class="product-collateral">
+                    @if (!String.IsNullOrEmpty(Model.FullDescription))
+                    {
+                        <div class="full-description-wrapper">
+                            <div class="title">
+                                <strong>@T("SevenSpikes.Themes.Venture.Common.ProductPageFullDescription")</strong>
+                            </div>
+                            <div class="full-description" itemprop="description">
+                                @Html.Raw(Model.FullDescription)
+                            </div>
+                        </div>
+                    }
+                    @await Html.PartialAsync("_ProductSpecifications", Model.ProductSpecifications)
+                    @await Html.PartialAsync("_ProductTags", Model.ProductTags)
+                </div>
+                @*we do not display "also purchased" for grouped products
+                    @await Component.InvokeAsync("ProductsAlsoPurchased", new { productId = Model.Id })*@
+                @if (recommendations.Count > 0)
+                {
+                    <div class="related-products-grid product-grid">
+                        <div class="title">
+                            <strong>@T("Products.RecommendedProducts")</strong>
+                        </div>
+                        <div class="item-grid">
+                            @{
+                                var util = ViewData["util"] as RenderHelper;
+                                int itemCount = 0;
+                            }
+                            @foreach (var record in recommendations)
+                            {
+                                if (itemCount++ >= 4)
+                                {
+                                    break;
+                                }
+                                string articleNr = (string)record.GetFieldValue(FieldsSection.GetInstance().MasterProduktID);//(string)record.GetFieldValue(FieldsSection.GetInstance().ProductNumber);
+                                string title = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductName);
+                                string price = (String)record.GetFieldValue(FieldsSection.GetInstance().Price);
+                                //string oldprice = (string)record.GetFieldValue(FieldsSection.GetInstance().OldPrice); // MISSING
+                                string description = (string)record.GetFieldValue(FieldsSection.GetInstance().Description);
+                                string imageUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().BildUrl);
+                                string detailUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductUrl);
+                                string sid = Context.Session.Id;
+
+                                <div class="item-box">
+                                    <div class="product-item" data-productid="@articleNr">
+                                        <div class="picture">
+                                            <a href="@detailUrl" onclick="@(util.CreateJavaScriptClickCode(record, sid))">
+                                                <img valign="top" src="@imageUrl" alt="no picture"
+                                                     title="@title" @*onload="resizePicture(this, 120, 170)" *@ onerror="imageNotFound(this)"
+                                                     @*onmouseover="TagToTip('descr@(articleNr)', SHADOW, true)" onmouseout="UnTip()" *@ />
+                                            </a>
+                                        </div>
+                                        <div class="details">
+                                            <h2 class="product-title">
+                                                <a href="@(detailUrl)"><text>@title</text></a>
+                                            </h2>
+                                            <div class="description">
+                                                @description
+                                            </div>
+                                            <div class="add-info">
+                                                <div class="prices">
+                                                    <div class="box-prices-wrapper">
+                                                        <span class="price actual-price">@Decimal.Parse(price, new System.Globalization.CultureInfo("de-DE")).ToString("C2", new System.Globalization.CultureInfo("de-DE"))</span>
+                                                        @*<span class="price old-price">@oldprice</span>*@
+                                                    </div>
+                                                </div>
+                                                <div class="buttons">
+                                                    <input type="button" value="Add to cart" class="button-2 product-box-add-to-cart-button" onclick="AjaxCart.addproducttocart_catalog('/addproducttocart/catalog/@(articleNr)/1/1');return false;" />
+                                                    <input type="button" value="@T("ShoppingCart.AddToWishlist")" title="@T("ShoppingCart.AddToWishlist")" class="button-2 add-to-wishlist-button" onclick="AjaxCart.addproducttocart_catalog('/addproducttocart/catalog/@(articleNr)/2/1');return false;" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (similarProducts.Count > 0)
+                {
+                    <div class="related-products-grid product-grid">
+                        <div class="title">
+                            <strong>@T("Products.SimilarProducts")</strong>
+                        </div>
+                        <div class="item-grid">
+                            @{
+                                var util = ViewData["util"] as RenderHelper;
+                                int itemCount = 0;
+                            }
+                            @foreach (var record in similarProducts)
+                            {
+                                if (itemCount++ >= 4)
+                                {
+                                    break;
+                                }
+                                string articleNr = (string)record.GetFieldValue(FieldsSection.GetInstance().MasterProduktID);//(string)record.GetFieldValue(FieldsSection.GetInstance().ProductNumber);
+                                string title = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductName);
+                                string price = (String)record.GetFieldValue(FieldsSection.GetInstance().Price);
+                                //string oldprice = (string)record.GetFieldValue(FieldsSection.GetInstance().OldPrice); // MISSING
+                                string description = (string)record.GetFieldValue(FieldsSection.GetInstance().Description);
+                                string imageUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().BildUrl);
+                                string detailUrl = (string)record.GetFieldValue(FieldsSection.GetInstance().ProductUrl);
+                                string sid = Context.Session.Id;
+
+                                <div class="item-box">
+                                    <div class="product-item" data-productid="@articleNr">
+                                        <div class="picture">
+                                            <a href="@detailUrl" onclick="@(util.CreateJavaScriptClickCode(record, sid))">
+                                                <img valign="top" src="@imageUrl" alt="no picture"
+                                                     title="@title" @*onload="resizePicture(this, 120, 170)" *@ onerror="imageNotFound(this)"
+                                                     @*onmouseover="TagToTip('descr@(articleNr)', SHADOW, true)" onmouseout="UnTip()" *@ />
+                                            </a>
+                                        </div>
+                                        <div class="details">
+                                            <h2 class="product-title">
+                                                <a href="@(detailUrl)"><text>@title</text></a>
+                                            </h2>
+                                            <div class="description">
+                                                @description
+                                            </div>
+                                            <div class="add-info">
+                                                <div class="prices">
+                                                    <div class="box-prices-wrapper">
+                                                        <span class="price actual-price">@Decimal.Parse(price, new System.Globalization.CultureInfo("de-DE")).ToString("C2", new System.Globalization.CultureInfo("de-DE"))</span>
+                                                        @*<span class="price old-price">@oldprice</span>*@
+                                                    </div>
+                                                </div>
+                                                <div class="buttons">
+                                                    <input type="button" value="Add to cart" class="button-2 product-box-add-to-cart-button" onclick="AjaxCart.addproducttocart_catalog('/addproducttocart/catalog/@(articleNr)/1/1');return false;" />
+                                                    <input type="button" value="@T("ShoppingCart.AddToWishlist")" title="@T("ShoppingCart.AddToWishlist")" class="button-2 add-to-wishlist-button" onclick="AjaxCart.addproducttocart_catalog('/addproducttocart/catalog/@(articleNr)/2/1');return false;" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                @await Component.InvokeAsync("RelatedProducts", new { productId = Model.Id })
+            </div>
+        </div>
+        @await Component.InvokeAsync("Widget", new { widgetZone = "productdetails_bottom", additionalData = Model.Id })
+    </div>
+</div>
+<script type="text/javascript">
+    function setSelectedAttributes(variantId) {
+        var sizes = "@sizesOrder";
+        sizes = sizes.replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_").toLocaleLowerCase();
+        var firstDropdownText = $('.availability-attributes-wrapper select').first().children("option").filter(":selected").text();
+        firstDropdownText = firstDropdownText.replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_").toLocaleLowerCase();
+        var isSize = false;
+        if (sizes.indexOf("," + firstDropdownText + ",") >= 0) {
+            isSize = true;
+        }
+        firstDropdownText = "attrib_" + firstDropdownText.toLocaleLowerCase() + variantId;
+        var secondDropdownText = "attrib_" + $('.availability-attributes-wrapper select').last().children("option").filter(":selected").text().replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_").toLocaleLowerCase() + variantId;
+
+        eval(" $('#size' + variantId).val(" + (isSize ? firstDropdownText : secondDropdownText) + ");");
+        eval(" $('#color' + variantId).val(" + (isSize ? secondDropdownText : firstDropdownText) + ");");
+
+    }
+    function showSelectedVariant() {
+        //hide, show options of second dropdown based on selection of the first dropdown
+        var firstDropdownValue = $('.availability-attributes-wrapper select').first().children("option").filter(":selected").text();
+        firstDropdownValue = firstDropdownValue.replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_").toLocaleLowerCase();
+        $('.availability-attributes-wrapper select').last().children("option").hide();
+        $('.availability-attributes-wrapper select').last().children("option").each(function () {
+            try {
+                eval("var a = " + ('attrib_' + firstDropdownValue + $(this).text().replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_")).toLocaleLowerCase() + ";");
+                $(this).show();
+            } catch (e) {
+                //ignore
+            }
+        });
+        if ($('.availability-attributes-wrapper select').last().children("option").filter(":selected").css('display') === 'none')//if selection option is not availabe change the option
+        {
+            $('.availability-attributes-wrapper select').last().children("option").each(function () {
+                if ($(this).css('display') !== 'none') {
+                    $('.availability-attributes-wrapper select').last().val($(this).val());
+                    return;
+                }
+            });
+        }
+
+        //hide, show variant details related to the selection
+        var value = 'attrib_';
+        $('.availability-attributes-wrapper select').each(function () {
+            value += $(this).children("option").filter(":selected").text().replace(/\//g, "_").replace(/=/g, "_").replace(/-/g, "_").replace(/ /g, "_").replace(/\./g, "_");
+        });
+
+        if (value !== "" && value.indexOf("-") < 0) {
+            try {
+                eval("$('.section' + " + value.toLocaleLowerCase() + ").css('display','flex')");
+                eval("$('.picSection' + " + value.toLocaleLowerCase() + ").css('display','block')");
+                $('.section').hide();
+                $('.picSection').hide();
+                eval("$('.section' + " + value.toLocaleLowerCase() + ").css('display','flex')");
+                eval("$('.picSection' + " + value.toLocaleLowerCase() + ").css('display','block')");
+            } catch (e) {
+                //ignore
+            }
+        }
+
+
+        //alert($('.availability-attributes-wrapper select').last().children("option").filter(":selected").text());
+    }
+    $(function () {
+        $('.availability-attributes-wrapper select').on('change', function () {
+            showSelectedVariant();
+        });
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('size')) {
+            var value = urlParams.get('size');
+            $('option').each(function () {
+                if ($(this).text() == value) {
+                    $(this).attr('selected', 'selected');
+                }
+            });
+        }
+        if (urlParams.has('color')) {
+            var value = urlParams.get('color');
+            $('option').each(function () {
+                if ($(this).text() == value) {
+                    $(this).attr('selected', 'selected');
+                }
+            });
+        }
+        showSelectedVariant();
+    });
+</script>
